@@ -2,9 +2,11 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "installCommand": "npm install --legacy-peer-deps",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "${VITE_API_URL}/api/$1" },
-    { "source": "/metrics", "destination": "${VITE_API_URL}/metrics" }
+    { "source": "/metrics", "destination": "${VITE_API_URL}/metrics" },
+    { "source": "/health", "destination": "${VITE_API_URL}/health" }
   ],
   "headers": [
     {
