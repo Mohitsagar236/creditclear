@@ -40,6 +40,7 @@ app.add_middleware(
                   "http://localhost:8080",
                   "http://localhost:8082",
                   "https://creditclear.vercel.app",
+                  "https://creditclear-mohitsagar236.vercel.app",
                   "https://creditclear-git-master-mohitsagar236.vercel.app",
                   "https://creditclear-mohitsagar236.vercel.app",
                   "*"],  # Include Vercel domains
