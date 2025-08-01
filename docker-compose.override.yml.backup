@@ -1,0 +1,27 @@
+# Docker Compose Override for Development
+version: '3.8'
+
+services:
+  # Development Backend with hot reload
+  backend:
+    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      - ENV=development
+      - DEBUG=true
+    volumes:
+      - ./src:/app/src:ro
+      - ./config:/app/config:ro
+
+  # Development Celery Worker with auto-reload
+  celery-worker:
+    command: celery -A src.api.celery_app worker --loglevel=debug --concurrency=2 --autoreload
+    environment:
+      - ENV=development
+      - DEBUG=true
+    volumes:
+      - ./src:/app/src:ro
+      - ./config:/app/config:ro
+
+  # Frontend development server
+  frontend:
+    profiles: []  # Remove profile restriction for development

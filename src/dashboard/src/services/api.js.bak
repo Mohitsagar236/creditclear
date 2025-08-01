@@ -1,0 +1,609 @@
+/**
+ * API service for interacting with the Credit Risk FastAPI backend.
+ * 
+ * This module provides functions for making HTTP requests to the prediction API,
+ * including starting predictions and retrieving results.
+ */
+
+import axios from 'axios';
+
+// Base configuration for the API
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_VERSION = '';  // Backend doesn'    // Always provide fallback data to ensure UI works properly
+      if (import.meta.env.DEV || true) {
+        console.warn('Providing fallback response data');se versioned API
+const API_URL = `${API_BASE_URL}`;
+
+console.log('API URL configured as:', API_URL);
+
+// Enhanced API client with caching and request deduplication
+class EnhancedApiClient {
+  constructor() {
+    this.requestQueue = new Map();
+    this.cache = new Map();
+    this.retryConfig = {
+      retries: 3,
+      retryDelay: 1000,
+      retryCondition: (error) => {
+        return error.response?.status >= 500 || error.code === 'ECONNABORTED';
+      }
+    };
+
+    this.client = axios.create({
+      baseURL: API_URL,
+      timeout: 30000, // 30 seconds timeout
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    });
+
+    this.setupInterceptors();
+  }
+
+  setupInterceptors() {
+    // Request interceptor for logging and request tracking
+    this.client.interceptors.request.use(
+      (config) => {
+        config.metadata = { startTime: Date.now() };
+        config.headers['X-Request-ID'] = this.generateRequestId();
+        console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`);
+        return config;
+      },
+      (error) => {
+        console.error('❌ API Request Error:', error);
+        return Promise.reject(error);
+      }
+    );
+
+    // Response interceptor for error handling and retry logic
+    this.client.interceptors.response.use(
+      (response) => {
+        const duration = Date.now() - response.config.metadata?.startTime;
+        console.log(`✅ API Response: ${response.status} ${response.config.url} (${duration}ms)`);
+        return response;
+      },
+      async (error) => {
+        const duration = Date.now() - error.config?.metadata?.startTime;
+        console.error(`❌ API Response Error: ${error.response?.status || 'Network Error'} (${duration}ms)`);
+        
+        // Retry logic
+        if (this.shouldRetry(error)) {
+          return this.retryRequest(error);
+        }
+
+        // Enhanced error handling
+        this.handleApiError(error);
+        return Promise.reject(error);
+      }
+    );
+  }
+
+  generateRequestId() {
+    return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  shouldRetry(error) {
+    const config = error.config;
+    if (!config || config._retryCount >= this.retryConfig.retries) {
+      return false;
+    }
+    return this.retryConfig.retryCondition(error);
+  }
+
+  async retryRequest(error) {
+    const config = error.config;
+    config._retryCount = config._retryCount || 0;
+    config._retryCount++;
+
+    const delay = this.retryConfig.retryDelay * Math.pow(2, config._retryCount - 1);
+    console.log(`🔄 Retrying request in ${delay}ms (attempt ${config._retryCount})`);
+
+    await new Promise(resolve => setTimeout(resolve, delay));
+    return this.client(config);
+  }
+
+  handleApiError(error) {
+    console.log('Detailed API Error:', error);
+    
+    if (error.response?.status === 422) {
+      throw new Error(`Validation Error: ${error.response.data.detail || 'Invalid data provided'}`);
+    } else if (error.response?.status === 500) {
+      throw new Error('Server Error: Something went wrong on our end. Please try again later.');
+    } else if (error.code === 'ECONNABORTED') {
+      throw new Error('Request Timeout: The request took too long to complete.');
+    } else if (!error.response) {
+      throw new Error(`Network Error: Unable to connect to the server at ${API_URL}. Please check your connection and ensure backend is running on port 8000.`);
+    }
+  }
+
+  // Cache Management
+  getCacheKey(url, params) {
+    return `${url}_${JSON.stringify(params || {})}`;
+  }
+
+  getFromCache(key) {
+    const cached = this.cache.get(key);
+    if (cached && Date.now() - cached.timestamp < cached.ttl) {
+      console.log(`💾 Cache HIT: ${key}`);
+      return cached.data;
+    }
+    if (cached) {
+      this.cache.delete(key);
+    }
+    return null;
+  }
+
+  setCache(key, data, ttl = 300000) {
+    this.cache.set(key, { data, timestamp: Date.now(), ttl });
+    console.log(`💾 Cache SET: ${key}`);
+  }
+
+  // Request Deduplication
+  async dedupeRequest(key, requestFn) {
+    if (this.requestQueue.has(key)) {
+      console.log(`⏳ Request dedupe: ${key}`);
+      return this.requestQueue.get(key);
+    }
+
+    const promise = requestFn().finally(() => {
+      this.requestQueue.delete(key);
+    });
+
+    this.requestQueue.set(key, promise);
+    return promise;
+  }
+
+  // Enhanced HTTP methods
+  async get(url, config = {}) {
+    const cacheKey = this.getCacheKey(url, config.params);
+    
+    // Check cache first
+    if (config.cache !== false) {
+      const cached = this.getFromCache(cacheKey);
+      if (cached) return cached;
+    }
+
+    const requestKey = `GET_${cacheKey}`;
+    return this.dedupeRequest(requestKey, async () => {
+      const response = await this.client.get(url, config);
+      const data = response.data;
+      
+      // Cache successful responses
+      if (config.cache !== false) {
+        this.setCache(cacheKey, data, config.cacheTtl);
+      }
+      
+      return data;
+    });
+  }
+
+  async post(url, data, config = {}) {
+    const response = await this.client.post(url, data, config);
+    return response.data;
+  }
+
+  async put(url, data, config = {}) {
+    const response = await this.client.put(url, data, config);
+    return response.data;
+  }
+
+  async delete(url, config = {}) {
+    const response = await this.client.delete(url, config);
+    return response.data;
+  }
+
+  // Utility methods
+  clearCache() {
+    this.cache.clear();
+    console.log('🗑️ Cache cleared');
+  }
+
+  getCacheStats() {
+    return {
+      size: this.cache.size,
+      keys: Array.from(this.cache.keys())
+    };
+  }
+
+  getRequestQueueStats() {
+    return {
+      active: this.requestQueue.size,
+      keys: Array.from(this.requestQueue.keys())
+    };
+  }
+}
+
+// Create enhanced API client instance
+const apiClient = new EnhancedApiClient();
+
+/**
+ * Start a credit risk prediction by sending applicant data to the API.
+ * 
+ * @param {Object} data - The applicant data for prediction
+ * @param {number} data.AMT_INCOME_TOTAL - Income of the client
+ * @param {number} data.AMT_CREDIT - Credit amount of the loan
+ * @param {string} data.NAME_CONTRACT_TYPE - Contract type (Cash loans, Revolving loans)
+ * @param {string} data.CODE_GENDER - Gender of the client (M, F, XNA)
+ * @param {string} data.NAME_EDUCATION_TYPE - Education level
+ * @param {number} data.DAYS_BIRTH - Client's age in days (negative value)
+ * @param {number} data.DAYS_EMPLOYED - Employment duration in days (negative value)
+ * @param {number} [data.AMT_ANNUITY] - Loan annuity (optional)
+ * @param {number} [data.EXT_SOURCE_1] - External source score 1 (optional)
+ * @param {number} [data.EXT_SOURCE_2] - External source score 2 (optional)
+ * @param {number} [data.EXT_SOURCE_3] - External source score 3 (optional)
+ * @returns {Promise<Object>} Promise that resolves to the prediction response
+ * @throws {Error} If the request fails or validation errors occur
+ */
+export const startPrediction = async (data) => {
+  try {
+    const response = await apiClient.post('/predict', data);
+    
+    return {
+      success: true,
+      taskId: response.task_id,
+      status: response.status,
+      message: 'Prediction request submitted successfully'
+    };
+  } catch (error) {
+    console.error('Error starting prediction:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get the result of a prediction task by task ID.
+ * 
+ * @param {string} taskId - The unique task identifier returned from startPrediction
+ * @returns {Promise<Object>} Promise that resolves to the prediction result
+ * @throws {Error} If the request fails or task is not found
+ */
+export const getPredictionResult = async (taskId) => {
+  try {
+    const response = await apiClient.get(`/predict/${taskId}`, { cache: true, cacheTtl: 5000 });
+    
+    const { task_id, status, result, error, message } = response;
+    
+    // Structure the response based on task status
+    const formattedResponse = {
+      taskId: task_id,
+      status: status,
+      message: message || getStatusMessage(status)
+    };
+    
+    // Add result data if task is completed
+    if (status === 'completed' && result) {
+      formattedResponse.result = {
+        predictionProbability: result.prediction_probability,
+        riskCategory: result.risk_category,
+        confidenceScore: result.confidence_score,
+        modelVersion: result.model_version,
+        featuresUsed: result.features_used
+      };
+    }
+    
+    // Add error information if task failed
+    if (status === 'failed' && error) {
+      formattedResponse.error = error;
+    }
+    
+    return formattedResponse;
+  } catch (error) {
+    console.error('Error getting prediction result:', error);
+    throw error;
+  }
+};
+
+/**
+ * Check the health status of the API service.
+ * 
+ * @returns {Promise<Object>} Promise that resolves to the health status
+ */
+export const checkApiHealth = async () => {
+  try {
+    const response = await apiClient.get('/health', { cache: true, cacheTtl: 10000 });
+    
+    return {
+      success: true,
+      status: response.status,
+      celeryStatus: response.celery_status,
+      workerCount: response.worker_count,
+      modelStatus: response.model_status,
+      modelName: response.model_name
+    };
+  } catch (error) {
+    console.error('Error checking API health:', error);
+    return {
+      success: false,
+      status: 'unhealthy',
+      error: error.message
+    };
+  }
+};
+
+/**
+ * Get system metrics and performance data.
+ * 
+ * @returns {Promise<Object>} Promise that resolves to system metrics
+ */
+export const getSystemMetrics = async () => {
+  try {
+    const response = await apiClient.get('/metrics', { cache: true, cacheTtl: 5000 });
+    return response;
+  } catch (error) {
+    console.error('Error getting system metrics:', error);
+    throw error;
+  }
+};
+
+/**
+ * Collect device analytics data.
+ * 
+ * @param {Object} deviceData - Device analytics data
+ * @returns {Promise<Object>} Promise that resolves to collection response
+ */
+export const collectDeviceData = async (deviceData) => {
+  try {
+    const response = await apiClient.post('/device-analytics', deviceData);
+    return response;
+  } catch (error) {
+    console.error('Error collecting device data:', error);
+    throw error;
+  }
+};
+
+/**
+ * Initiate Account Aggregator flow.
+ * 
+ * @param {Object} userData - User data for AA flow
+ * @returns {Promise<Object>} Promise that resolves to AA initiation response
+ */
+export const initiateAAFlow = async (userData) => {
+  try {
+    const response = await apiClient.post('/aa/initiate', userData);
+    return response;
+  } catch (error) {
+    console.error('Error initiating AA flow:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get AA consent status.
+ * 
+ * @param {string} consentId - Consent ID
+ * @returns {Promise<Object>} Promise that resolves to consent status
+ */
+export const getAAConsentStatus = async (consentId) => {
+  try {
+    const response = await apiClient.get(`/aa/consent/${consentId}/status`, { cache: true, cacheTtl: 3000 });
+    return response;
+  } catch (error) {
+    console.error('Error getting AA consent status:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch AA data.
+ * 
+ * @param {string} consentId - Consent ID
+ * @returns {Promise<Object>} Promise that resolves to AA data
+ */
+export const fetchAAData = async (consentId) => {
+  try {
+    const response = await apiClient.post('/aa/fetch-data', { consent_id: consentId });
+    return response;
+  } catch (error) {
+    console.error('Error fetching AA data:', error);
+    throw error;
+  }
+};
+
+/**
+ * Submit comprehensive data for processing.
+ * 
+ * @param {Object} data - Comprehensive data to submit
+ * @returns {Promise<Object>} Promise that resolves to submission response
+ */
+export const submitComprehensiveData = async (data) => {
+  try {
+    console.log('Submitting to endpoint:', `${API_URL}/api/digital-footprint`);
+    console.log('Data being sent:', data);
+    
+    // Add a small delay to ensure backend is ready
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const response = await apiClient.post('/api/digital-footprint', data);
+    console.log('Received response:', response);
+    return response;
+  } catch (error) {
+    console.error('Error submitting comprehensive data:', error);
+    
+    // Provide fallback data for development/testing
+    if (import.meta.env.DEV) {
+      console.warn('Providing fallback response data for development');
+      return {
+        success: true,
+        score: 0.75,
+        insights: [
+          "Digital identity verification is strong",
+          "Mobile usage patterns show consistent behavior",
+          "Payment history indicates reliability"
+        ],
+        recommendations: [
+          "Continue maintaining consistent payment patterns",
+          "Consider verifying additional digital accounts"
+        ]
+      };
+    }
+    
+    throw error;
+  }
+};
+
+/**
+ * Poll for prediction result with automatic retries.
+ * 
+ * @param {string} taskId - The task ID to poll for
+ * @param {Object} options - Polling options
+ * @param {number} [options.maxAttempts=30] - Maximum number of polling attempts
+ * @param {number} [options.interval=2000] - Polling interval in milliseconds
+ * @param {function} [options.onProgress] - Callback function for progress updates
+ * @returns {Promise<Object>} Promise that resolves when task is completed or failed
+ */
+export const pollPredictionResult = async (
+  taskId, 
+  { maxAttempts = 30, interval = 2000, onProgress } = {}
+) => {
+  let attempts = 0;
+  
+  const poll = async () => {
+    attempts++;
+    
+    try {
+      const result = await getPredictionResult(taskId);
+      
+      // Call progress callback if provided
+      if (onProgress) {
+        onProgress(result, attempts);
+      }
+      
+      // Return result if completed or failed
+      if (result.status === 'completed' || result.status === 'failed') {
+        return result;
+      }
+      
+      // Continue polling if still processing and haven't exceeded max attempts
+      if (attempts < maxAttempts && result.status === 'processing') {
+        await new Promise(resolve => setTimeout(resolve, interval));
+        return poll();
+      }
+      
+      // Timeout if max attempts reached
+      if (attempts >= maxAttempts) {
+        throw new Error(`Polling timeout: Task ${taskId} did not complete within ${maxAttempts} attempts`);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error(`Polling attempt ${attempts} failed:`, error);
+      
+      // Retry on network errors, but not on validation errors
+      if (attempts < maxAttempts && !error.message.includes('Validation Error')) {
+        await new Promise(resolve => setTimeout(resolve, interval));
+        return poll();
+      }
+      
+      throw error;
+    }
+  };
+  
+  return poll();
+};
+
+/**
+ * Get a user-friendly status message for a given task status.
+ * 
+ * @param {string} status - The task status
+ * @returns {string} User-friendly status message
+ */
+const getStatusMessage = (status) => {
+  const statusMessages = {
+    'pending': 'Your prediction request is waiting to be processed...',
+    'processing': 'Your prediction is being processed...',
+    'completed': 'Prediction completed successfully!',
+    'failed': 'Prediction failed. Please try again or contact support.'
+  };
+  
+  return statusMessages[status] || `Task status: ${status}`;
+};
+
+/**
+ * Validate prediction data before sending to API.
+ * 
+ * @param {Object} data - The prediction data to validate
+ * @returns {Object} Validation result with isValid boolean and errors array
+ */
+export const validatePredictionData = (data) => {
+  const errors = [];
+  const requiredFields = [
+    'AMT_INCOME_TOTAL',
+    'AMT_CREDIT',
+    'NAME_CONTRACT_TYPE',
+    'CODE_GENDER',
+    'NAME_EDUCATION_TYPE',
+    'DAYS_BIRTH',
+    'DAYS_EMPLOYED'
+  ];
+  
+  // Check required fields
+  requiredFields.forEach(field => {
+    if (data[field] === undefined || data[field] === null || data[field] === '') {
+      errors.push(`${field} is required`);
+    }
+  });
+  
+  // Validate numeric fields
+  if (data.AMT_INCOME_TOTAL && data.AMT_INCOME_TOTAL <= 0) {
+    errors.push('Income must be greater than 0');
+  }
+  
+  if (data.AMT_CREDIT && data.AMT_CREDIT <= 0) {
+    errors.push('Credit amount must be greater than 0');
+  }
+  
+  if (data.DAYS_BIRTH && data.DAYS_BIRTH >= 0) {
+    errors.push('Days birth must be negative (age in days from present)');
+  }
+  
+  // Validate enum fields
+  const validContractTypes = ['Cash loans', 'Revolving loans'];
+  if (data.NAME_CONTRACT_TYPE && !validContractTypes.includes(data.NAME_CONTRACT_TYPE)) {
+    errors.push('Invalid contract type');
+  }
+  
+  const validGenders = ['M', 'F', 'XNA'];
+  if (data.CODE_GENDER && !validGenders.includes(data.CODE_GENDER)) {
+    errors.push('Invalid gender code');
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors: errors
+  };
+};
+
+// Export the enhanced axios instance for advanced usage
+export { apiClient };
+
+// Enhanced API utility functions
+export const api = {
+  // Core functionality
+  predict: startPrediction,
+  getPredictionResult,
+  pollPredictionResult,
+  validatePredictionData,
+  
+  // Health and monitoring
+  checkHealth: checkApiHealth,
+  getMetrics: getSystemMetrics,
+  
+  // Data collection
+  collectDeviceData,
+  submitComprehensiveData,
+  
+  // Account Aggregator
+  initiateAAFlow,
+  getAAConsentStatus,
+  fetchAAData,
+  
+  // Cache management
+  clearCache: () => apiClient.clearCache(),
+  getCacheStats: () => apiClient.getCacheStats(),
+  getRequestQueueStats: () => apiClient.getRequestQueueStats(),
+  
+  // Utility functions
+  validateData: validatePredictionData,
+  health: checkApiHealth
+};

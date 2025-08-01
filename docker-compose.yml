@@ -1,0 +1,149 @@
+# Docker Compose for Credit Risk Assessment System
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:13
+    container_name: credit-risk-postgres
+    environment:
+      - POSTGRES_DB=creditrisk
+      - POSTGRES_USER=creditrisk
+      - POSTGRES_PASSWORD=creditrisk123
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U creditrisk"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache for Celery task queue
+  cache:
+    image: redis:6-alpine
+    container_name: credit-risk-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # FastAPI API Backend
+  api:
+    build: .
+    container_name: credit-risk-api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://creditrisk:creditrisk123@db:5432/creditrisk
+      - REDIS_URL=redis://cache:6379/0
+      - MLFLOW_TRACKING_URI=sqlite:///app/data/mlflow.db
+      - MODEL_PATH=/app/data/models/
+      - LOG_LEVEL=INFO
+      - PYTHONPATH=/app
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+      - ./logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Celery Worker
+  worker:
+    build: .
+    container_name: credit-risk-worker
+    command: celery -A src.api.celery_app worker --loglevel=info --concurrency=4
+    environment:
+      - DATABASE_URL=postgresql://creditrisk:creditrisk123@db:5432/creditrisk
+      - REDIS_URL=redis://cache:6379/0
+      - MLFLOW_TRACKING_URI=sqlite:///app/data/mlflow.db
+      - MODEL_PATH=/app/data/models/
+      - LOG_LEVEL=INFO
+      - PYTHONPATH=/app
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+      - ./logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "celery", "-A", "src.api.celery_app", "inspect", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # React Dashboard with Nginx
+  dashboard:
+    build:
+      context: ./src/dashboard
+      dockerfile: Dockerfile.dashboard
+    container_name: credit-risk-dashboard
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000
+    depends_on:
+      - api
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # MLflow Tracking Server (optional)
+  mlflow:
+    image: python:3.9-slim
+    container_name: credit-risk-mlflow
+    ports:
+      - "5000:5000"
+    command: >
+      bash -c "pip install mlflow==2.8.1 &&
+               mlflow server --host 0.0.0.0 --port 5000 --default-artifact-root /app/mlruns --backend-store-uri sqlite:///app/mlflow.db"
+    volumes:
+      - ./data:/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    profiles:
+      - development
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  default:
+    name: credit-risk-network

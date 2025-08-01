@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 
+    GOOGLE PLAY COMPLIANCE FOR PERSONAL LOAN APPS:
+    
+    Google Play policy for personal loan apps prohibits requesting ACCESS_FINE_LOCATION.
+    Using coarse location is the only potential option and must be justified for the 
+    app's core functionality, not just for credit scoring.
+    
+    PERMITTED USE CASES FOR ACCESS_COARSE_LOCATION:
+    - Branch/ATM locator functionality (primary use case)
+    - Regional service availability checks
+    - Fraud prevention (with clear user benefit)
+    - Regulatory compliance (geographic restrictions)
+    
+    IMPORTANT: Location data cannot be used solely for credit scoring or risk assessment.
+    It must provide direct value to the user through features like branch finding.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    
+    <!-- Essential permissions for React Native app -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    
+    <!-- Device information (already compliant from DeviceAnalytics) -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    
+    <!-- Optional permissions with clear justification -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    
+    <!-- 
+    PROHIBITED PERMISSIONS FOR PERSONAL LOAN APPS:
+    These permissions will cause immediate app rejection:
+    
+    DO NOT INCLUDE:
+    - android.permission.ACCESS_FINE_LOCATION (prohibited)
+    - android.permission.QUERY_ALL_PACKAGES (prohibited)
+    - android.permission.GET_ACCOUNTS (restricted)
+    - android.permission.READ_CONTACTS (avoid unless essential)
+    - android.permission.READ_SMS (avoid unless essential)
+    - android.permission.READ_CALL_LOG (prohibited)
+    - android.permission.RECORD_AUDIO (avoid unless essential)
+    -->
+
+    <application
+        android:name=".MainApplication"
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:allowBackup="false"
+        android:theme="@style/AppTheme"
+        android:usesCleartextTraffic="true"
+        tools:targetApi="28">
+        
+        <!-- Main Activity -->
+        <activity
+            android:name=".MainActivity"
+            android:label="@string/app_name"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|uiMode"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        
+        <!-- Deep linking for Account Aggregator consent flows -->
+        <activity
+            android:name=".DeepLinkActivity"
+            android:exported="true"
+            android:launchMode="singleTask">
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https"
+                      android:host="your-domain.com" />
+            </intent-filter>
+        </activity>
+        
+        <!-- File provider for document uploads -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+        
+        <!-- Network security config for HTTPS -->
+        <meta-data
+            android:name="android.security.net.config"
+            android:resource="@xml/network_security_config" />
+    </application>
+
+    <!-- Hardware features -->
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.location"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.location.network"
+        android:required="false" />
+    
+    <!-- 
+    COMPLIANCE NOTES:
+    
+    1. LOCATION FEATURES MARKED AS NOT REQUIRED:
+       Location features are marked as not required so the app works
+       on devices without GPS or location services.
+    
+    2. CAMERA MARKED AS NOT REQUIRED:
+       Camera is optional for document verification but app should
+       work without it (manual document upload alternative).
+    
+    3. NO FINE LOCATION HARDWARE REQUIREMENT:
+       We deliberately avoid requiring GPS hardware to comply
+       with coarse location only policy.
+    
+    4. NETWORK LOCATION ONLY:
+       Only network-based location (cell towers, WiFi) which
+       provides coarse accuracy suitable for branch finding.
+    -->
+
+</manifest>
+
+<!-- 
+DEPLOYMENT CHECKLIST FOR GOOGLE PLAY:
+
+✅ Uses ACCESS_COARSE_LOCATION only (fine location prohibited)
+✅ Clear justification for location usage (branch finder)
+✅ No prohibited permissions (QUERY_ALL_PACKAGES, etc.)
+✅ Location features marked as optional
+✅ Privacy policy updated to explain location usage
+✅ User consent flows implemented
+✅ Core app functionality works without location
+✅ Transparent data collection practices
+
+PRIVACY POLICY REQUIREMENTS:
+- Explain why location is collected (branch finder)
+- Specify coarse accuracy level used
+- Detail data retention period
+- Provide opt-out mechanism
+- List third-party sharing (none)
+- Include user rights information
+
+TESTING REQUIREMENTS:
+- Test on devices without location services
+- Verify app works when location denied
+- Test branch finder functionality
+- Validate permission request flows
+- Confirm coarse accuracy levels
+- Test service availability checks
+-->

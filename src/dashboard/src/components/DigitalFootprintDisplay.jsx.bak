@@ -1,0 +1,233 @@
+import React, { useState, useEffect } from 'react';
+import { digitalFootprint } from '../services/digitalFootprint';
+import styles from './DigitalFootprintDisplay.module.css';
+
+const DigitalFootprintDisplay = () => {
+  const [footprintData, setFootprintData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [analysisResult, setAnalysisResult] = useState(null);
+
+  useEffect(() => {
+    collectData();
+  }, []);
+
+  const collectData = async () => {
+    try {
+      setLoading(true);
+      const data = await digitalFootprint.collectDigitalFootprint();
+      setFootprintData(data);
+      const result = await digitalFootprint.submitFootprintData();
+      setAnalysisResult(result);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) return <div className="p-4">Collecting digital footprint data...</div>;
+  if (error) return <div className="p-4 text-red-600">Error: {error}</div>;
+  if (!footprintData) return null;
+
+  return (
+    <div className="p-4 max-w-4xl mx-auto">
+      <h2 className="text-2xl font-bold mb-6">Digital Footprint Analysis</h2>
+      
+      {/* Score and Insights Section */}
+      {analysisResult && (
+        <div className={`mb-8 ${styles.scoreCard}`}>
+          <div className="text-xl font-semibold mb-4">
+            Credit Score: {(analysisResult.score * 100).toFixed(1)}
+          </div>
+          <div className="mb-4">
+            <h3 className="font-semibold mb-2">Key Insights:</h3>
+            <ul className="list-disc pl-5">
+              {analysisResult.insights.map((insight, index) => (
+                <li key={index} className="mb-1">{insight}</li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h3 className="font-semibold mb-2">Recommendations:</h3>
+            <ul className="list-disc pl-5">
+              {analysisResult.recommendations.map((rec, index) => (
+                <li key={index} className="mb-1">{rec}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Digital Identity Section */}
+      <section className="mb-6">
+        <h3 className="text-xl font-semibold mb-3">Digital Identity</h3>
+        <div className={`grid grid-cols-2 gap-4 bg-white p-4 rounded-lg shadow ${styles.dataSection}`}>
+          <div>
+            <span className="font-medium">Device ID:</span>
+            <span className="ml-2">{footprintData.digitalIdentity.deviceId}</span>
+          </div>
+          <div>
+            <span className="font-medium">Account Age:</span>
+            <span className="ml-2">{footprintData.digitalIdentity.accountAge} days</span>
+          </div>
+          <div>
+            <span className="font-medium">Email Status:</span>
+            <span className={`ml-2 ${styles.tag} ${footprintData.digitalIdentity.emailVerified ? styles.verified : styles.unverified}`}>
+              {footprintData.digitalIdentity.emailVerified ? '✅ Verified' : '❌ Not Verified'}
+            </span>
+          </div>
+          <div>
+            <span className="font-medium">Phone Status:</span>
+            <span className={`ml-2 ${styles.tag} ${footprintData.digitalIdentity.phoneVerified ? styles.verified : styles.unverified}`}>
+              {footprintData.digitalIdentity.phoneVerified ? '✅ Verified' : '❌ Not Verified'}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* Mobile Usage Section */}
+      <section className="mb-6">
+        <h3 className="text-xl font-semibold mb-3">Mobile Usage Patterns</h3>
+        <div className={`bg-white p-4 rounded-lg shadow ${styles.dataSection}`}>
+          <div className="mb-4">
+            <h4 className="font-medium mb-2">App Categories</h4>
+            <div className="flex flex-wrap gap-2">
+              {footprintData.mobileUsage.appCategories.map((category, index) => (
+                <span key={index} className={`${styles.tag} bg-blue-100 text-blue-800`}>
+                  {category}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <h4 className="font-medium mb-2">Daily Usage</h4>
+              <p>{(footprintData.mobileUsage.usageDuration.daily / 60).toFixed(1)} hours</p>
+            </div>
+            <div>
+              <h4 className="font-medium mb-2">Active Hours</h4>
+              <p>{footprintData.mobileUsage.activeHours.join(', ')}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Digital Payments Section */}
+      <section className="mb-6">
+        <h3 className="text-xl font-semibold mb-3">Digital Payments</h3>
+        <div className={`bg-white p-4 rounded-lg shadow ${styles.dataSection}`}>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <h4 className="font-medium mb-2">Payment Methods</h4>
+              <div className="flex flex-wrap gap-2">
+                {footprintData.ecommerce.paymentMethods.map((method, index) => (
+                  <span key={index} className={`${styles.tag} bg-green-100 text-green-800`}>
+                    {method}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h4 className="font-medium mb-2">Transaction Success Rate</h4>
+              <p>{(footprintData.ecommerce.transactionMetrics.successRate * 100).toFixed(1)}%</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Location Data Section */}
+      {footprintData.locationMobility && (
+        <section className="mb-6">
+          <h3 className="text-xl font-semibold mb-3">Location Patterns</h3>
+          <div className={`bg-white p-4 rounded-lg shadow ${styles.dataSection}`}>
+            <div className="mb-4">
+              <h4 className="font-medium mb-2">Frequent Locations</h4>
+              <div className="grid grid-cols-1 gap-2">
+                {footprintData.locationMobility.frequentLocations.map((location, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <span className="text-sm bg-yellow-100 px-2 py-1 rounded">
+                      {location.type}
+                    </span>
+                    <span className="text-sm">
+                      ({location.lat.toFixed(4)}, {location.lng.toFixed(4)})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <h4 className="font-medium mb-2">Location Stability</h4>
+              <div className={`w-full ${styles.progressBar}`}>
+                <div
+                  className={`bg-blue-600 ${styles.progressFill}`}
+                  style={{ width: `${footprintData.locationMobility.locationStability * 100}%` }}
+                />
+              </div>
+              <p className="text-sm mt-1">
+                {(footprintData.locationMobility.locationStability * 100).toFixed(1)}% stable
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Device Technical Section */}
+      <section className="mb-6">
+        <h3 className="text-xl font-semibold mb-3">Device Information</h3>
+        <div className={`bg-white p-4 rounded-lg shadow ${styles.dataSection}`}>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <h4 className="font-medium mb-2">Device Details</h4>
+              <p className="text-sm">OS: {footprintData.deviceTechnical.device.os}</p>
+              <p className="text-sm">Language: {footprintData.deviceTechnical.device.language}</p>
+            </div>
+            <div>
+              <h4 className="font-medium mb-2">Security Score</h4>
+              <div className={`w-full ${styles.progressBar}`}>
+                <div
+                  className={`bg-green-600 ${styles.progressFill}`}
+                  style={{ width: `${footprintData.deviceTechnical.security.score * 100}%` }}
+                />
+              </div>
+              <p className="text-sm mt-1">
+                {(footprintData.deviceTechnical.security.score * 100).toFixed(1)}%
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Utility Services Section */}
+      <section className="mb-6">
+        <h3 className="text-xl font-semibold mb-3">Utility Services</h3>
+        <div className={`bg-white p-4 rounded-lg shadow ${styles.dataSection}`}>
+          <div className="mb-4">
+            <h4 className="font-medium mb-2">Active Subscriptions</h4>
+            <div className="flex flex-wrap gap-2">
+              {footprintData.utilityServices.subscriptions.map((sub, index) => (
+                <span key={index} className={`${styles.tag} bg-purple-100 text-purple-800`}>
+                  {sub}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div>
+            <h4 className="font-medium mb-2">Payment Consistency</h4>
+            <div className={`w-full ${styles.progressBar}`}>
+              <div
+                className={`bg-purple-600 ${styles.progressFill}`}
+                style={{ width: `${footprintData.utilityServices.paymentConsistency * 100}%` }}
+              />
+            </div>
+            <p className="text-sm mt-1">
+              {(footprintData.utilityServices.paymentConsistency * 100).toFixed(1)}% consistent
+            </p>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+};
+
+export default DigitalFootprintDisplay;

@@ -1,0 +1,189 @@
+from fastapi import APIRouter, HTTPException
+from typing import Dict, Any, List
+from ..schemas.digital_footprint import DigitalFootprint, DigitalFootprintResponse
+from datetime import datetime
+
+router = APIRouter()
+
+@router.post("/digital-footprint", response_model=DigitalFootprintResponse)
+async def process_digital_footprint(footprint_data: DigitalFootprint):
+    try:
+        # Process the digital footprint data
+        score = calculate_digital_footprint_score(footprint_data)
+        insights = generate_insights(footprint_data)
+        recommendations = generate_recommendations(footprint_data, score)
+
+        return DigitalFootprintResponse(
+            success=True,
+            score=score,
+            insights=insights,
+            recommendations=recommendations
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+def calculate_digital_footprint_score(data: DigitalFootprint) -> float:
+    """Calculate a risk score based on digital footprint data."""
+    score_components = {
+        'identity': evaluate_digital_identity(data.digitalIdentity),
+        'social': evaluate_social_presence(data.socialMedia),
+        'mobile': evaluate_mobile_usage(data.mobileUsage),
+        'financial': evaluate_financial_behavior(data.ecommerce, data.digitalPayments),
+        'utility': evaluate_utility_patterns(data.utilityServices),
+        'location': evaluate_location_stability(data.locationMobility),
+        'technical': evaluate_technical_profile(data.deviceTechnical)
+    }
+    
+    # Weighted average of components
+    weights = {
+        'identity': 0.15,
+        'social': 0.10,
+        'mobile': 0.15,
+        'financial': 0.25,
+        'utility': 0.15,
+        'location': 0.10,
+        'technical': 0.10
+    }
+    
+    final_score = sum(score * weights[component] 
+                     for component, score in score_components.items())
+    return round(final_score, 2)
+
+def evaluate_digital_identity(identity_data: Dict[str, Any]) -> float:
+    """Evaluate digital identity strength."""
+    score = 0.0
+    if identity_data.emailVerified:
+        score += 0.4
+    if identity_data.phoneVerified:
+        score += 0.4
+    score += min(identity_data.accountAge / 365 * 0.2, 0.2)  # Up to 20% for account age
+    return score
+
+def evaluate_social_presence(social_data: Dict[str, Any]) -> float:
+    """Evaluate social media presence and activity."""
+    if not social_data:
+        return 0.5  # Neutral score if no social data available
+    
+    score = 0.0
+    # Network size scoring
+    score += min(social_data.networkSize / 500, 0.3)  # Up to 30% for network size
+    # Activity metrics
+    score += min(social_data.activityMetrics.get('engagementRate', 0) * 0.4, 0.4)
+    # Account age
+    score += min(social_data.accountAge / 730 * 0.3, 0.3)  # Up to 30% for 2+ years
+    return score
+
+def evaluate_mobile_usage(usage_data: Dict[str, Any]) -> float:
+    """Evaluate mobile usage patterns."""
+    score = 0.0
+    # Diversity of app categories
+    score += len(usage_data.appCategories) / 10 * 0.3  # Up to 30% for diverse app usage
+    
+    # Usage consistency
+    daily_usage = usage_data.usageDuration.get('daily', 0)
+    if 60 <= daily_usage <= 480:  # Reasonable daily usage between 1-8 hours
+        score += 0.4
+    elif daily_usage < 30 or daily_usage > 720:  # Less than 30min or more than 12 hours
+        score += 0.1
+    else:
+        score += 0.2
+        
+    # Time pattern stability
+    time_pattern_variance = calculate_time_pattern_variance(usage_data.timePatterns)
+    score += (1 - time_pattern_variance) * 0.3  # Up to 30% for stable patterns
+    
+    return score
+
+def evaluate_financial_behavior(ecommerce_data: Dict[str, Any], 
+                              payments_data: Dict[str, Any]) -> float:
+    """Evaluate financial behavior from ecommerce and digital payments."""
+    score = 0.0
+    
+    # Transaction history evaluation
+    if ecommerce_data.purchaseHistory:
+        avg_transaction = sum(t.get('amount', 0) for t in ecommerce_data.purchaseHistory) / \
+                         len(ecommerce_data.purchaseHistory)
+        score += min(avg_transaction / 1000, 0.3)  # Up to 30% based on average transaction
+    
+    # Payment methods diversity
+    score += len(ecommerce_data.paymentMethods) / 5 * 0.2  # Up to 20% for payment methods
+    
+    # Digital payment adoption
+    if payments_data.upiTransactions:
+        score += 0.25  # 25% for active UPI usage
+    
+    # Payment consistency
+    consistency = payments_data.paymentPatterns.get('consistency', 0)
+    score += consistency * 0.25  # Up to 25% for payment consistency
+    
+    return score
+
+def evaluate_utility_patterns(utility_data: Dict[str, Any]) -> float:
+    """Evaluate utility payment patterns."""
+    return utility_data.paymentConsistency  # Direct use of payment consistency score
+
+def evaluate_location_stability(location_data: Dict[str, Any]) -> float:
+    """Evaluate location patterns and stability."""
+    if not location_data:
+        return 0.5  # Neutral score if no location data available
+    
+    return location_data.locationStability  # Direct use of location stability score
+
+def evaluate_technical_profile(technical_data: Dict[str, Any]) -> float:
+    """Evaluate technical profile of the device."""
+    score = 0.0
+    
+    # Device security score
+    score += technical_data.security.get('score', 0) * 0.4  # Up to 40% for security
+    
+    # Network reliability
+    score += technical_data.network.get('reliability', 0) * 0.3  # Up to 30% for network
+    
+    # App ecosystem health
+    score += min(len(technical_data.apps.get('installed', [])) / 50, 0.3)  # Up to 30%
+    
+    return score
+
+def generate_insights(data: DigitalFootprint) -> List[str]:
+    """Generate insights based on digital footprint analysis."""
+    insights = []
+    
+    # Digital identity insights
+    if data.digitalIdentity.emailVerified and data.digitalIdentity.phoneVerified:
+        insights.append("Strong digital identity verification")
+    
+    # Mobile usage insights
+    daily_usage = data.mobileUsage.usageDuration.get('daily', 0)
+    if daily_usage > 360:  # More than 6 hours
+        insights.append("High mobile engagement indicates digital literacy")
+    
+    # Financial behavior insights
+    if data.ecommerce.transactionMetrics.get('frequency', 0) > 0.7:
+        insights.append("Regular digital transaction history demonstrates financial activity")
+    
+    # Location insights
+    if data.locationMobility and data.locationMobility.locationStability > 0.8:
+        insights.append("Stable location patterns suggest established lifestyle")
+    
+    return insights
+
+def generate_recommendations(data: DigitalFootprint, score: float) -> List[str]:
+    """Generate recommendations based on digital footprint analysis."""
+    recommendations = []
+    
+    # Score-based recommendations
+    if score < 0.4:
+        recommendations.append("Consider increasing digital payment usage for better assessment")
+        recommendations.append("Verify email and phone for stronger digital identity")
+    elif score < 0.7:
+        recommendations.append("Maintain consistent utility payment patterns")
+        recommendations.append("Consider using more digital financial services")
+    
+    # Specific recommendations based on data
+    if not data.digitalIdentity.emailVerified:
+        recommendations.append("Complete email verification to strengthen your profile")
+    
+    if data.utilityServices.paymentConsistency < 0.8:
+        recommendations.append("Improve utility payment consistency for better credit assessment")
+    
+    return recommendations

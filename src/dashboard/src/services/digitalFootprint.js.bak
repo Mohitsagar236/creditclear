@@ -1,0 +1,342 @@
+/**
+ * Digital Footprint Collection and Analysis Service
+ */
+import { api } from './api';
+
+class DigitalFootprintCollector {
+  constructor() {
+    this.permissionStatus = new Map();
+    this.collectedData = {};
+  }
+
+  async requestPermissions() {
+    const permissions = {
+      location: await this.requestPermission('geolocation'),
+      storage: await this.requestPermission('storage'),
+      apps: await this.requestPermission('installed-apps'),
+      contacts: await this.requestPermission('contacts'),
+      calendar: await this.requestPermission('calendar'),
+      notifications: await this.requestPermission('notifications'),
+      financial: await this.requestPermission('financial-data')
+    };
+
+    return permissions;
+  }
+
+  async requestPermission(permissionType) {
+    try {
+      switch (permissionType) {
+        case 'geolocation':
+          return await navigator.permissions.query({ name: 'geolocation' });
+        case 'storage':
+          return await navigator.permissions.query({ name: 'persistent-storage' });
+        default:
+          // Custom permission prompt for non-standard permissions
+          const userConsent = await this.showPermissionPrompt(permissionType);
+          return { state: userConsent ? 'granted' : 'denied' };
+      }
+    } catch (error) {
+      console.error(`Error requesting ${permissionType} permission:`, error);
+      return { state: 'denied' };
+    }
+  }
+
+  async showPermissionPrompt(permissionType) {
+    // Implement custom permission UI here
+    return new Promise(resolve => {
+      // Example implementation - replace with actual UI
+      const consent = window.confirm(
+        `Allow access to ${permissionType} for credit assessment? This helps improve your credit evaluation.`
+      );
+      resolve(consent);
+    });
+  }
+
+  async collectDigitalFootprint() {
+    const permissions = await this.requestPermissions();
+    
+    const footprintData = {
+      timestamp: new Date().toISOString(),
+      digitalIdentity: await this.collectDigitalIdentity(),
+      socialMedia: permissions.contacts.state === 'granted' ? await this.collectSocialMediaData() : null,
+      mobileUsage: await this.collectMobileUsageData(),
+      ecommerce: await this.collectEcommerceData(),
+      digitalPayments: await this.collectDigitalPaymentsData(),
+      utilityServices: await this.collectUtilityData(),
+      locationMobility: permissions.location.state === 'granted' ? await this.collectLocationData() : null,
+      deviceTechnical: await this.collectDeviceTechnicalData()
+    };
+
+    this.collectedData = footprintData;
+    return footprintData;
+  }
+
+  async collectDigitalIdentity() {
+    return {
+      deviceId: await this.getDeviceId(),
+      emailVerified: await this.checkEmailVerification(),
+      phoneVerified: await this.checkPhoneVerification(),
+      accountAge: await this.getAccountAge()
+    };
+  }
+
+  async collectSocialMediaData() {
+    // Collect social media metrics if permission granted
+    return {
+      networkSize: await this.getNetworkSize(),
+      accountAge: await this.getSocialAccountAge(),
+      activityMetrics: {
+        postFrequency: await this.calculatePostFrequency(),
+        engagementRate: await this.calculateEngagementRate(),
+        connectionGrowth: await this.getConnectionGrowth()
+      }
+    };
+  }
+
+  async collectMobileUsageData() {
+    const usagePatterns = await this.getAppUsagePatterns();
+    return {
+      appCategories: usagePatterns.categories,
+      usageDuration: usagePatterns.duration,
+      timePatterns: usagePatterns.timeDistribution,
+      activeHours: usagePatterns.activeHours
+    };
+  }
+
+  async collectEcommerceData() {
+    return {
+      purchaseHistory: await this.getPurchaseHistory(),
+      paymentMethods: await this.getPaymentMethods(),
+      transactionMetrics: await this.getTransactionMetrics()
+    };
+  }
+
+  async collectDigitalPaymentsData() {
+    return {
+      upiTransactions: await this.getUPIHistory(),
+      walletUsage: await this.getWalletUsage(),
+      paymentPatterns: await this.analyzePaymentPatterns()
+    };
+  }
+
+  async collectUtilityData() {
+    return {
+      billPayments: await this.getUtilityBillHistory(),
+      subscriptions: await this.getSubscriptionServices(),
+      paymentConsistency: await this.analyzePaymentConsistency()
+    };
+  }
+
+  async collectLocationData() {
+    const locationPatterns = await this.getLocationPatterns();
+    return {
+      homeWorkPattern: locationPatterns.homeWork,
+      travelPatterns: locationPatterns.travel,
+      locationStability: locationPatterns.stability,
+      frequentLocations: locationPatterns.frequent
+    };
+  }
+
+  async collectDeviceTechnicalData() {
+    return {
+      device: await this.getDeviceInfo(),
+      apps: await this.getAppEcosystem(),
+      network: await this.getNetworkBehavior(),
+      security: await this.getSecurityMetrics()
+    };
+  }
+
+  // Helper methods for data collection
+  async getDeviceId() {
+    // Implement device fingerprinting
+    return 'device_' + Math.random().toString(36).substr(2, 9);
+  }
+
+  async getAppUsagePatterns() {
+    // Implementation for collecting app usage data
+    return {
+      categories: ['finance', 'social', 'productivity'],
+      duration: { daily: 180, weekly: 1260 },
+      timeDistribution: { morning: 30, afternoon: 40, evening: 30 },
+      activeHours: [9, 10, 11, 14, 15, 16, 19, 20]
+    };
+  }
+
+  async checkEmailVerification() {
+    // Implement email verification check
+    return true; // Replace with actual implementation
+  }
+
+  async checkPhoneVerification() {
+    // Implement phone verification check
+    return true; // Replace with actual implementation
+  }
+
+  async getAccountAge() {
+    // Implement account age calculation
+    return 365; // Replace with actual implementation (days)
+  }
+
+  async getNetworkSize() {
+    return 250; // Replace with actual implementation
+  }
+
+  async getSocialAccountAge() {
+    return 730; // Replace with actual implementation (days)
+  }
+
+  async calculatePostFrequency() {
+    return 0.8; // Replace with actual implementation (posts per day)
+  }
+
+  async calculateEngagementRate() {
+    return 0.15; // Replace with actual implementation (15% engagement)
+  }
+
+  async getConnectionGrowth() {
+    return 0.05; // Replace with actual implementation (5% monthly growth)
+  }
+
+  async getPurchaseHistory() {
+    return [
+      { amount: 500, date: '2025-07-28', category: 'electronics' },
+      { amount: 100, date: '2025-07-27', category: 'groceries' }
+    ];
+  }
+
+  async getPaymentMethods() {
+    return ['credit_card', 'upi', 'net_banking'];
+  }
+
+  async getTransactionMetrics() {
+    return {
+      frequency: 0.8,
+      avgAmount: 300,
+      successRate: 0.95
+    };
+  }
+
+  async getUPIHistory() {
+    return [
+      { amount: 200, date: '2025-07-28', type: 'payment' },
+      { amount: 500, date: '2025-07-27', type: 'transfer' }
+    ];
+  }
+
+  async getWalletUsage() {
+    return {
+      frequency: 0.7,
+      avgBalance: 1000,
+      rechargeFrequency: 0.2
+    };
+  }
+
+  async analyzePaymentPatterns() {
+    return {
+      consistency: 0.85,
+      preferredTime: 'evening',
+      preferredMethod: 'upi'
+    };
+  }
+
+  async getUtilityBillHistory() {
+    return [
+      { type: 'electricity', amount: 1000, date: '2025-07-01', status: 'paid' },
+      { type: 'internet', amount: 800, date: '2025-07-05', status: 'paid' }
+    ];
+  }
+
+  async getSubscriptionServices() {
+    return ['netflix', 'spotify', 'amazon_prime'];
+  }
+
+  async analyzePaymentConsistency() {
+    return 0.9; // 90% consistency in utility payments
+  }
+
+  async getLocationPatterns() {
+    return {
+      homeWork: {
+        home: { lat: 12.9716, lng: 77.5946 },
+        work: { lat: 12.9789, lng: 77.5917 }
+      },
+      travel: {
+        frequency: 0.2,
+        radius: 5000
+      },
+      stability: 0.85,
+      frequent: [
+        { lat: 12.9716, lng: 77.5946, type: 'home' },
+        { lat: 12.9789, lng: 77.5917, type: 'work' },
+        { lat: 12.9733, lng: 77.5932, type: 'gym' }
+      ]
+    };
+  }
+
+  async getDeviceInfo() {
+    return {
+      os: navigator.platform,
+      browser: navigator.userAgent,
+      screen: {
+        width: window.screen.width,
+        height: window.screen.height
+      },
+      language: navigator.language
+    };
+  }
+
+  async getAppEcosystem() {
+    return {
+      installed: ['chrome', 'whatsapp', 'gpay', 'phonepe'],
+      categories: {
+        finance: 3,
+        social: 4,
+        productivity: 2
+      }
+    };
+  }
+
+  async getNetworkBehavior() {
+    return {
+      type: navigator.connection?.type || 'unknown',
+      speed: navigator.connection?.downlink || 0,
+      reliability: 0.95
+    };
+  }
+
+  async getSecurityMetrics() {
+    return {
+      score: 0.85,
+      factors: {
+        biometric: true,
+        screenLock: true,
+        encryption: true
+      }
+    };
+  }
+
+  async submitFootprintData() {
+    try {
+      if (!this.collectedData) {
+        throw new Error('No digital footprint data collected');
+      }
+
+      const response = await api.submitComprehensiveData({
+        type: 'digital_footprint',
+        data: this.collectedData
+      });
+
+      return {
+        success: true,
+        score: response.digitalFootprintScore,
+        insights: response.insights,
+        recommendations: response.recommendations
+      };
+    } catch (error) {
+      console.error('Error submitting digital footprint data:', error);
+      throw error;
+    }
+  }
+}
+
+export const digitalFootprint = new DigitalFootprintCollector();

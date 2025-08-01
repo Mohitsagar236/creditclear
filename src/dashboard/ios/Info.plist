@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- App Information -->
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>CreditClear</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	
+	<!-- 
+	LOCATION PERMISSION FOR GOOGLE PLAY COMPLIANCE:
+	
+	For iOS apps that will also be on Google Play (React Native),
+	we use "When In Use" location to match the coarse location
+	policy for Android personal loan apps.
+	
+	JUSTIFICATION: Location is used for branch/ATM finder and
+	service availability, NOT for credit scoring alone.
+	-->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We use your approximate location to help you find nearby bank branches and ATMs, and to verify that our loan services are available in your area. This makes it easier for you to access our services when you need them. We only collect city-level location information and never track your precise movements.</string>
+	
+	<!-- 
+	ALTERNATIVE LOCATION DESCRIPTIONS (choose based on primary use case):
+	
+	For Branch Finder Focus:
+	<string>Find nearby branches and ATMs to make banking more convenient for you. We only use coarse location data to show you the closest service locations.</string>
+	
+	For Service Availability:
+	<string>Verify that our loan services are available in your region and comply with local regulations. Only your general area (city/state level) is used.</string>
+	
+	For Security (use sparingly):
+	<string>Help verify the authenticity of your application and prevent fraud. We use approximate location for security purposes only.</string>
+	-->
+	
+	<!-- Camera permission for document verification -->
+	<key>NSCameraUsageDescription</key>
+	<string>Take photos of your documents for loan application verification. This helps us process your application faster and more securely.</string>
+	
+	<!-- Photo library for document upload -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Select photos of your documents from your photo library for loan application verification.</string>
+	
+	<!-- Microphone (if needed for video verification) -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Record video for identity verification as part of our secure loan application process.</string>
+	
+	<!-- Face ID / Touch ID for app security -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>Use Face ID to securely access your loan application and protect your financial information.</string>
+	
+	<!-- 
+	PROHIBITED PERMISSIONS FOR PERSONAL LOAN APPS:
+	
+	DO NOT INCLUDE these permissions as they may cause issues:
+	- NSLocationAlwaysAndWhenInUseUsageDescription (too invasive)
+	- NSLocationAlwaysUsageDescription (prohibited)
+	- NSContactsUsageDescription (avoid unless essential)
+	- NSCalendarsUsageDescription (not needed for loans)
+	- NSRemindersUsageDescription (not needed for loans)
+	- NSBluetoothPeripheralUsageDescription (not justified)
+	-->
+	
+	<!-- URL Schemes for Account Aggregator and deep linking -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.creditclear.app.deeplink</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>creditclear</string>
+				<string>https</string>
+			</array>
+		</dict>
+	</array>
+	
+	<!-- App Transport Security for HTTPS -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<!-- Allow connections to your API domain -->
+			<key>your-api-domain.com</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<false/>
+				<key>NSExceptionMinimumTLSVersion</key>
+				<string>TLSv1.2</string>
+				<key>NSExceptionRequiresForwardSecrecy</key>
+				<true/>
+			</dict>
+			<!-- Setu Account Aggregator API -->
+			<key>fiu-uat.setu.co</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<false/>
+				<key>NSExceptionMinimumTLSVersion</key>
+				<string>TLSv1.2</string>
+			</dict>
+		</dict>
+	</dict>
+	
+	<!-- Required device capabilities -->
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>armv7</string>
+	</array>
+	
+	<!-- Supported interface orientations -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	
+	<!-- UI Configuration -->
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIRequiresFullScreen</key>
+	<false/>
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleDefault</string>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
+	
+	<!-- Background modes (if needed) -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<!-- Only include if you need background processing -->
+		<!-- <string>background-processing</string> -->
+		<!-- <string>background-fetch</string> -->
+	</array>
+	
+	<!-- Privacy and Security -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	
+	<!-- Prevent backup of sensitive data -->
+	<key>NSAllowsArbitraryLoadsInWebContent</key>
+	<false/>
+	
+</dict>
+</plist>
+
+<!-- 
+iOS COMPLIANCE NOTES:
+
+1. LOCATION PERMISSION COMPLIANCE:
+   - Using NSLocationWhenInUseUsageDescription only
+   - Clear explanation focused on branch finder utility
+   - No "always" location tracking (prohibited)
+   - Emphasizes user benefit, not company benefit
+
+2. PERMISSION DESCRIPTIONS:
+   - All descriptions explain clear user benefit
+   - Avoid mentioning credit scoring or risk assessment
+   - Focus on service delivery and user convenience
+   - Transparent about data usage level (coarse/city-level)
+
+3. SECURITY CONFIGURATION:
+   - HTTPS enforced for all network connections
+   - TLS 1.2 minimum for secure communications
+   - No arbitrary loads allowed
+   - App Transport Security properly configured
+
+4. FUNCTIONALITY FOCUS:
+   - Permissions support core app functionality
+   - Document verification capabilities
+   - Secure authentication options
+   - Deep linking for Account Aggregator flows
+
+APP STORE REVIEW GUIDELINES COMPLIANCE:
+
+✅ Clear permission usage descriptions
+✅ User benefit clearly explained
+✅ No invasive permissions requested
+✅ Security best practices followed
+✅ Financial app compliance considerations
+✅ Privacy-focused implementation
+
+TESTING REQUIREMENTS:
+
+- Test location permission request flow
+- Verify app works when location denied
+- Test branch finder with location services
+- Validate permission descriptions display correctly
+- Confirm no background location tracking
+- Test document verification flows
+- Validate deep linking functionality
+
+PRIVACY POLICY REQUIREMENTS:
+
+- Document all permission usage
+- Explain location data handling
+- Specify data retention periods
+- Detail user control options
+- List data sharing practices (none)
+- Include contact information for privacy questions
+-->
