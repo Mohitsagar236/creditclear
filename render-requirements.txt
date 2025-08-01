@@ -16,4 +16,4 @@ passlib[bcrypt]>=1.7.4
 joblib>=1.1.0
 # Required ML components
 xgboost>=1.5.0
-# pickle5 removed - functionality is built into Python 3.9+
+
