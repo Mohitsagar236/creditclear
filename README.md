@@ -82,6 +82,4 @@ docker-compose up
    - Feature importance
    - Model interpretation
 
-## License
 
-MIT
